@@ -21,7 +21,7 @@ public class PlayerMovement : MonoBehaviour
     public bool jumping { get; private set; }
     public bool running => Mathf.Abs(velocity.x) > 0.21f || Mathf.Abs(inputAxis) > 0.21f;
     public bool sliding => (inputAxis > 0 && velocity.x < 0f) || (inputAxis < 0 && velocity.x > 0f);
-
+    [SerializeField] private AudioSource jumpEffectSound;
 
     void Awake()
     {
@@ -58,6 +58,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (Input.GetButtonDown("Jump"))
         {
+            jumpEffectSound.Play();
             velocity.y = jumpForce;
             jumping = true;
         }
