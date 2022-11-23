@@ -21,12 +21,13 @@ public class PlayerMovement : MonoBehaviour
     public bool jumping { get; private set; }
     public bool running => Mathf.Abs(velocity.x) > 0.21f || Mathf.Abs(inputAxis) > 0.21f;
     public bool sliding => (inputAxis > 0 && velocity.x < 0f) || (inputAxis < 0 && velocity.x > 0f);
-
+    
 
     void Awake()
     {
         rigidBody = GetComponent<Rigidbody2D>();
         m_camera = Camera.main;
+        
     }
 
      void Update()
@@ -60,6 +61,7 @@ public class PlayerMovement : MonoBehaviour
         {
             velocity.y = jumpForce;
             jumping = true;
+            AudioManager.Instance.PlaySFX("Jump");
         }
     }
 
@@ -104,9 +106,18 @@ public class PlayerMovement : MonoBehaviour
             if (transform.DotTest(collision.transform, Vector2.up))
             {
                 velocity.y = 0f;
+                
+                //Adding switch statement will be better option
+                //when adding multiple sounds
+                if(collision.gameObject.tag == "Brick")
+                {
+                    AudioManager.Instance.PlaySFX("BrickBreak");
+                }
             }
 
         }
+
+        
     }
 
 }
