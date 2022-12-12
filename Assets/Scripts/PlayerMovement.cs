@@ -1,123 +1,180 @@
 using UnityEngine;
 
-
 [RequireComponent(typeof(Rigidbody2D))]
 public class PlayerMovement : MonoBehaviour
 {
-    // reference to Rigitbody
-    private   Camera m_camera;
-    private new Rigidbody2D rigidBody;
-
-    //Movement Variables
+    private new Camera camera;
+    private new Rigidbody2D rigidbody;
+    private new Collider2D collider;
+    private Coins coins;
     private Vector2 velocity;
     private float inputAxis;
-    public float movementSpeed = 4f;
-    public float maxJumpHeight = 0.75f;
-    public float maxJumptTime = 0.35f;
-    public float jumpForce => (2f * maxJumpHeight) / (maxJumptTime / 2f);
-    public float gravity => (-2f * maxJumpHeight) / Mathf.Pow((maxJumptTime / 2f), 2);
+
+    public float moveSpeed = 8f;
+    public float maxJumpHeight = 5f;
+    public float maxJumpTime = 1f;
+    public float jumpForce => (2f * maxJumpHeight) / (maxJumpTime / 2f);
+    public float gravity => (-2f * maxJumpHeight) / Mathf.Pow(maxJumpTime / 2f, 2f);
 
     public bool grounded { get; private set; }
     public bool jumping { get; private set; }
-    public bool running => Mathf.Abs(velocity.x) > 0.21f || Mathf.Abs(inputAxis) > 0.21f;
-    public bool sliding => (inputAxis > 0 && velocity.x < 0f) || (inputAxis < 0 && velocity.x > 0f);
-    
+    public bool running => Mathf.Abs(velocity.x) > 0.25f || Mathf.Abs(inputAxis) > 0.25f;
+    public bool sliding => (inputAxis > 0f && velocity.x < 0f) || (inputAxis < 0f && velocity.x > 0f);
+    public bool falling => velocity.y < 0f && !grounded;
 
-    void Awake()
+    private void Awake()
     {
-        rigidBody = GetComponent<Rigidbody2D>();
-        m_camera = Camera.main;
-        
+        camera = Camera.main;
+        rigidbody = GetComponent<Rigidbody2D>();
+        collider = GetComponent<Collider2D>();
+        coins = GameObject.Find("Coins").GetComponent<Coins>();
     }
 
-     void Update()
+    private void OnEnable()
+    {
+        rigidbody.isKinematic = false;
+        collider.enabled = true;
+        velocity = Vector2.zero;
+        jumping = false;
+    }
+
+    private void OnDisable()
+    {
+        rigidbody.isKinematic = true;
+        collider.enabled = false;
+        velocity = Vector2.zero;
+        jumping = false;
+    }
+
+    private void Update()
     {
         HorizontalMovement();
 
-        grounded = rigidBody.CheckRaycast(Vector2.down);
-       
-        if (grounded)
-        {
+        grounded = rigidbody.Raycast(Vector2.down);
+
+        if (grounded) {
             GroundedMovement();
         }
 
-        ApplyGravity(); 
+        ApplyGravity();
     }
 
-     void ApplyGravity()
+    private void FixedUpdate()
     {
-        bool falling = velocity.y < 0f || !Input.GetButton("Jump");
-        float multiplier = falling ? 0.25f : 1f;
-        velocity.y += gravity * multiplier * Time.deltaTime;
-        velocity.y = Mathf.Max(gravity / 0.45f, velocity.y);
+        // move mario based on his velocity
+        Vector2 position = rigidbody.position;
+        position += velocity * Time.fixedDeltaTime;
+
+        // clamp within the screen bounds
+        Vector2 leftEdge = camera.ScreenToWorldPoint(Vector2.zero);
+        Vector2 rightEdge = camera.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
+        position.x = Mathf.Clamp(position.x, leftEdge.x + 0.5f, rightEdge.x - 0.5f);
+
+        rigidbody.MovePosition(position);
     }
 
-     void GroundedMovement()
+    private void HorizontalMovement()
     {
-        velocity.y = Mathf.Max(velocity.y, 0f);
-        jumping = velocity.y > 0f;
-
-        if (Input.GetButtonDown("Jump"))
-        {
-            velocity.y = jumpForce;
-            jumping = true;
-            AudioManager.Instance.PlaySFX("Jump");
-        }
-    }
-
-     void HorizontalMovement()
-    {
-         inputAxis = Input.GetAxis("Horizontal");
-        velocity.x = Mathf.MoveTowards(velocity.x, inputAxis * movementSpeed, movementSpeed * Time.deltaTime);
+        // accelerate / decelerate
+        inputAxis = Input.GetAxis("Horizontal");
+        velocity.x = Mathf.MoveTowards(velocity.x, inputAxis * moveSpeed, moveSpeed * Time.deltaTime);
 
         // check if running into a wall
-        if (rigidBody.CheckRaycast(Vector2.right * velocity.x))
-        {
+        if (rigidbody.Raycast(Vector2.right * velocity.x)) {
             velocity.x = 0f;
         }
 
         // flip sprite to face direction
-        if (velocity.x > 0f)
-        {
+        if (velocity.x > 0f) {
             transform.eulerAngles = Vector3.zero;
-        }
-        else if (velocity.x < 0f)
-        {
+        } else if (velocity.x < 0f) {
             transform.eulerAngles = new Vector3(0f, 180f, 0f);
         }
     }
 
-     void FixedUpdate()
+    private void GroundedMovement()
     {
-        Vector2 position = rigidBody.position;
-        position += velocity * Time.fixedDeltaTime;
+        // prevent gravity from infinitly building up
+        velocity.y = Mathf.Max(velocity.y, 0f);
+        jumping = velocity.y > 0f;
 
-        Vector2 leftEdge = m_camera.ScreenToWorldPoint(Vector2.zero);
-        Vector2 rightEdge = m_camera.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
-        position.x = Mathf.Clamp(position.x, leftEdge.x + 0.05f, rightEdge.x - 0.05f);
+        // perform jump
+        if (Input.GetButtonDown("Jump"))
+        {
+            velocity.y = jumpForce;
+            jumping = true;
+            OnCollisionGameObjectSound("Jump");
+        }
+    }
 
-        rigidBody.MovePosition(position);
+    private void ApplyGravity()
+    {
+        // check if falling
+        bool falling = velocity.y < 0f || !Input.GetButton("Jump");
+        float multiplier = falling ? 2f : 1f;
+        
+        // apply gravity and terminal velocity
+        velocity.y += gravity * multiplier * Time.deltaTime;
+        velocity.y = Mathf.Max(velocity.y, gravity / 2f);
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.gameObject.layer != LayerMask.NameToLayer("PowerUp"))
+        OnCollisionGameObjectSound(collision.gameObject.tag);
+        if(collision.gameObject.tag == "Block")
         {
-            if (transform.DotTest(collision.transform, Vector2.up))
-            {
-                velocity.y = 0f;
-                
-                //Adding switch statement will be better option
-                //when adding multiple sounds
-                if(collision.gameObject.tag == "Brick")
-                {
-                    AudioManager.Instance.PlaySFX("BrickBreak");
-                }
-            }
-
+            
+            
+                coins.AddCoins(1);
+            
         }
 
-        
+        if (collision.gameObject.layer == LayerMask.NameToLayer("Enemy"))
+        {
+            
+            // bounce off enemy head
+            if (transform.DotTest(collision.transform, Vector2.down))
+            {
+                velocity.y = jumpForce / 2f;
+                jumping = true;
+            }
+        }
+        else if (collision.gameObject.layer != LayerMask.NameToLayer("PowerUp"))
+        {
+            // stop vertical movement if mario bonks his head
+            if (transform.DotTest(collision.transform, Vector2.up)) {
+                velocity.y = 0f;
+            }
+        }
+    }
+
+
+    private void OnCollisionGameObjectSound(string ObjectName)
+    {
+        switch (ObjectName)
+        {
+            case "Brick":
+                AudioManager.Instance.PlaySFX("Bump");
+                break;
+            case "Block":
+                AudioManager.Instance.PlaySFX("Coin");
+                break ;
+            case "OneUp":
+                AudioManager.Instance.PlaySFX("1Up");
+                break;
+            case "PowerUp":
+                AudioManager.Instance.PlaySFX("PowerUp");
+                break;
+            case "Die":
+                AudioManager.Instance.PlaySFX("Die");
+                break;
+            case "Jump":
+                AudioManager.Instance.PlaySFX("Jump");
+                break;
+            default:
+                break;
+
+        }
     }
 
 }

@@ -3,19 +3,22 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
+
 public class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance;
 
     public Sounds[] musicSounds, sfxsound;
     public AudioSource musicSource, sfxSource;
+    
 
-     void Awake()
+    void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            
         }
         else
         {
@@ -66,17 +69,21 @@ public class AudioManager : MonoBehaviour
 
     public void ToggleSFX()
     {
-        sfxSource.mute = !sfxSource.mute;   
+        sfxSource.mute = !sfxSource.mute;
     }
 
 
     public void MusicVolume(float volume)
     {
         musicSource.volume = volume;
+        
+       
+
     }
 
     public void SFXVolume(float volume)
     {
-        sfxSource.volume = volume;  
+        sfxSource.volume = volume;
+          
     }
 }

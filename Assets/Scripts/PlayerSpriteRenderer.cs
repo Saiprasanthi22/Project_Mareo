@@ -1,12 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(SpriteRenderer))]
 public class PlayerSpriteRenderer : MonoBehaviour
 {
     private PlayerMovement movement;
-    private SpriteRenderer spriteRenderer;
-    
+    public SpriteRenderer spriteRenderer { get; private set; }
     public Sprite idle;
     public Sprite jump;
     public Sprite slide;
@@ -14,24 +12,19 @@ public class PlayerSpriteRenderer : MonoBehaviour
 
     private void Awake()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>();
         movement = GetComponentInParent<PlayerMovement>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     private void LateUpdate()
     {
         run.enabled = movement.running;
 
-        if (movement.jumping)
-        {
+        if (movement.jumping) {
             spriteRenderer.sprite = jump;
-        }
-        else if (movement.sliding)
-        {
+        } else if (movement.sliding) {
             spriteRenderer.sprite = slide;
-        }
-        else if (!movement.running)
-        {
+        } else if (!movement.running) {
             spriteRenderer.sprite = idle;
         }
     }
@@ -46,7 +39,5 @@ public class PlayerSpriteRenderer : MonoBehaviour
         spriteRenderer.enabled = false;
         run.enabled = false;
     }
-
-
 
 }
